@@ -1,0 +1,190 @@
+# @rocapine/rn-social-share
+
+A **headless** social-sharing engine for React Native / Expo apps. It captures a view as an
+image and shares it across **modular channels** (Instagram Stories, TikTok, WhatsApp, SMS,
+the system share sheet, save-to-library, copy-link), behind a small abstraction so the app
+never touches `react-native-share` / the OpenSDKs directly.
+
+Extracted from the sharing features in **Eve** (weekly baby card) and **Unchaind** (invite
+card). This is the shared _plumbing_ — the visual card, the UI chrome, analytics wiring and
+i18n stay in each app and are injected.
+
+## What's in the box
+
+```
+src/
+  types.ts          SharePayload · ShareOutcome · ShareChannel · ShareEvent · Sharer
+  capture.ts        captureCardImage(ref, opts)   — view-shot → branded PNG
+  createSharer.ts   createSharer({channels, onEvent, fallbackChannelId})
+  channels/         systemSheet · whatsapp · copyLink · instagramStories · sms · tiktok · saveToLibrary
+  react/            useShareCard · useScreenshotTrigger · areAllImagesLoaded · screenshot gate
+  plugin/           withSocialShare  — iOS LSApplicationQueriesSchemes + Android <queries>
+```
+
+**Design principle — headless first.** The package owns capture, channel routing, screenshot
+detection and native query-permissions. It ships **no UI**: the two apps' share surfaces are
+very different (a Tamagui bottom sheet vs. a two-theme custom hub), so UI stays in the app.
+
+## Install (peer deps)
+
+Required in the host app:
+
+```
+react-native-share  react-native-view-shot  expo-file-system
+```
+
+Optional — only needed if you register the matching channel/hook:
+
+| Dependency                    | Needed by                      |
+| ----------------------------- | ------------------------------ |
+| `expo-clipboard`              | `copyLink`                     |
+| `expo-media-library`          | `saveToLibrary`                |
+| `expo-screen-capture`         | `useScreenshotTrigger`         |
+| `tiktok-opensdk-react-native` | `tiktok`                       |
+| `@expo/config-plugins`        | `withSocialShare` (build-time) |
+
+Optional channels lazy-`require` their native module, so importing the barrel never forces a
+dependency you don't use.
+
+## Usage
+
+### 1. Build a sharer (once, near your feature)
+
+```ts
+import {
+  createSharer,
+  systemSheet,
+  copyLink,
+  sms,
+  whatsapp,
+  instagramStories,
+  tiktok,
+} from "@rocapine/rn-social-share";
+
+export const inviteSharer = createSharer({
+  channels: [
+    copyLink(),
+    sms(),
+    whatsapp(),
+    instagramStories({ appId: FACEBOOK_APP_ID }),
+    tiktok({ onError: (e) => logger.warn("tiktok", e) }),
+    systemSheet(), // default fallback (id "system-sheet")
+  ],
+  onEvent: (e) => {
+    if (e.type === "share_completed") {
+      analytics.logEvent("invite_link_shared", {
+        channel: e.channel,
+        fell_back: e.fellBack,
+      });
+    }
+  },
+});
+```
+
+Add or remove a channel = edit the array. That's the whole extension surface.
+
+### 2. Capture the card and share
+
+```tsx
+import { useShareCard } from "@rocapine/rn-social-share";
+
+const { ref, capture } = useShareCard({ fileName: "unchaind-invite.png" });
+
+const onChannel = async (channelId: string) => {
+  const imageUri = channelId === "link" ? undefined : await capture();
+  await inviteSharer.share(channelId, {
+    message,
+    link,
+    imageUri,
+    fileName: "unchaind-invite",
+  });
+};
+
+// Render the card off-screen; point the ref at it:
+<View style={{ position: "absolute", left: -10000 }} pointerEvents="none">
+  <YourShareCard ref={ref} inviteCode={code} />
+</View>;
+```
+
+Need a rounded variant for the sheet and a square full-bleed one for Stories? Call
+`useShareCard` twice, or call `captureCardImage(ref, opts)` directly with each ref.
+
+### 3. Share on screenshot (optional, the Expo Marathon pattern)
+
+```ts
+import { useScreenshotTrigger } from "@rocapine/rn-social-share";
+
+useScreenshotTrigger(isVisible && !isSheetOpen, () =>
+  openShareSheet("screenshot"),
+);
+```
+
+A shared, app-wide gate dedupes the iOS double-fire / multiple-listener case (ROC-2854).
+
+### 4. Wire native query-permissions (build time)
+
+```jsonc
+// app.json / app.config.ts plugins
+[
+  "@rocapine/rn-social-share",
+  { "channels": ["instagram", "whatsapp", "tiktok"] },
+]
+```
+
+Adds the iOS `LSApplicationQueriesSchemes` and Android `<queries>` entries the channels'
+`isAvailable` checks need. **Scope:** query/visibility only — TikTok's full native wiring
+(client key, FileProvider) still lives in the app's `withTikTokShare` plugin for now.
+
+## Authoring a channel
+
+```ts
+import type { ShareChannel } from "@rocapine/rn-social-share";
+
+export const threads = (opts: { id?: string } = {}): ShareChannel => {
+  const id = opts.id ?? "threads";
+  return {
+    id,
+    isAvailable: async (p) => Boolean(p.imageUri),
+    share: async (p) => {
+      /* ...open Threads... */
+      return { completed: true, channel: id };
+    },
+  };
+};
+```
+
+`createSharer` handles routing, availability checks, fallback and events around it.
+
+## Consuming this package
+
+Consumed as a **git dependency pinned to a tag** (no registry). In the host app's
+`package.json`:
+
+```jsonc
+"@rocapine/rn-social-share": "github:Rocapine/rn-social-share#v0.1.0"
+```
+
+The built `dist/` (CJS + ESM + `.d.ts`) is committed, so installs work with any package
+manager without an install-time build step. Then declare the peer deps you actually use and
+add the config plugin (see above).
+
+## Development
+
+```bash
+npm install
+npm run type    # tsc --noEmit
+npm test        # jest
+npm run build   # tsup → dist/ (CJS + ESM + d.ts)
+```
+
+CI (GitHub Actions) runs type-check + tests + build on every push/PR and fails if the
+committed `dist/` is stale. **Rebuild and commit `dist/` before tagging a release.**
+
+## Status & next steps
+
+- [x] Core: types, capture, `createSharer`, channels, React hooks, config plugin
+- [x] Tests for `createSharer`, the screenshot gate, and channel translation (24 passing)
+- [x] Build (tsup) + type-check + CI, published as `v0.1.0`
+- [ ] Migrate Unchaind's `components/invite/` onto the package (superset of channels)
+- [ ] Migrate Eve's `features/Sharing/` (adds `saveToLibrary` + screenshot trigger usage)
+- [ ] Fold TikTok's full native config into `withSocialShare`

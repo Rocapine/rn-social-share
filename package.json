@@ -1,0 +1,70 @@
+{
+  "name": "@rocapine/rn-social-share",
+  "version": "0.1.0",
+  "description": "Headless social-sharing engine for React Native / Expo apps: capture a view as an image and share it across modular channels (Instagram Stories, TikTok, WhatsApp, SMS, system sheet, save to library, copy link).",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rocapine/rn-social-share.git"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./app.plugin.js": "./app.plugin.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "app.plugin.js"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "type": "tsc --noEmit",
+    "test": "jest",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-share": ">=12",
+    "react-native-view-shot": ">=4",
+    "expo-file-system": "*",
+    "expo-clipboard": "*",
+    "expo-media-library": "*",
+    "expo-screen-capture": "*",
+    "tiktok-opensdk-react-native": "*",
+    "@expo/config-plugins": "*"
+  },
+  "peerDependenciesMeta": {
+    "expo-clipboard": {
+      "optional": true
+    },
+    "expo-media-library": {
+      "optional": true
+    },
+    "expo-screen-capture": {
+      "optional": true
+    },
+    "tiktok-opensdk-react-native": {
+      "optional": true
+    },
+    "@expo/config-plugins": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/react": "*",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.4.0"
+  }
+}
