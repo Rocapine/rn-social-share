@@ -157,16 +157,22 @@ export const threads = (opts: { id?: string } = {}): ShareChannel => {
 
 ## Consuming this package
 
-Consumed as a **git dependency pinned to a tag** (no registry). In the host app's
-`package.json`:
+Published to the **public npm registry**:
 
-```jsonc
-"@rocapine/rn-social-share": "github:Rocapine/rn-social-share#v0.1.0"
+```bash
+npm install @rocapine/rn-social-share
 ```
 
-The built `dist/` (CJS + ESM + `.d.ts`) is committed, so installs work with any package
-manager without an install-time build step. Then declare the peer deps you actually use and
-add the config plugin (see above).
+```jsonc
+"@rocapine/rn-social-share": "^0.1.0"
+```
+
+The built `dist/` (CJS + ESM + `.d.ts`) is committed and shipped in the tarball, so there's
+no install-time build step. Then declare the peer deps you actually use and add the config
+plugin (see above).
+
+> A git-tag install (`github:Rocapine/rn-social-share#v0.1.0`) also works since the repo is
+> public and `dist/` is committed — handy for consuming an unpublished commit.
 
 ## Development
 
@@ -179,6 +185,9 @@ npm run build   # tsup → dist/ (CJS + ESM + d.ts)
 
 CI (GitHub Actions) runs type-check + tests + build on every push/PR and fails if the
 committed `dist/` is stale. **Rebuild and commit `dist/` before tagging a release.**
+
+Release: bump `version`, `npm run build` + commit `dist/`, then `npm publish` (`prepack`
+rebuilds and `publishConfig.access` is already `public`), and tag `vX.Y.Z`.
 
 ## Status & next steps
 
