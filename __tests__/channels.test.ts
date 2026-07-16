@@ -11,7 +11,9 @@ const mockSetString = jest.fn();
 
 jest.mock(
   "react-native",
-  () => ({ Linking: { canOpenURL: (...a: unknown[]) => mockCanOpenURL(...a) } }),
+  () => ({
+    Linking: { canOpenURL: (...a: unknown[]) => mockCanOpenURL(...a) },
+  }),
   { virtual: true },
 );
 
@@ -39,6 +41,7 @@ import { copyLink } from "../src/channels/copyLink";
 import { whatsapp } from "../src/channels/whatsapp";
 import { instagramStories } from "../src/channels/instagramStories";
 import { sms } from "../src/channels/sms";
+import { tiktok } from "../src/channels/tiktok";
 
 const PAYLOAD = {
   message: "Join!",
@@ -53,7 +56,9 @@ beforeEach(() => {
 
 describe("systemSheet", () => {
   it("opens the OS sheet with image + caption and reports the target app", async () => {
-    mockOpen.mockResolvedValue({ app: "com.apple.UIKit.activity.PostToFacebook" });
+    mockOpen.mockResolvedValue({
+      app: "com.apple.UIKit.activity.PostToFacebook",
+    });
     const outcome = await systemSheet().share(PAYLOAD);
 
     expect(mockOpen).toHaveBeenCalledWith(
@@ -111,12 +116,18 @@ describe("whatsapp", () => {
 describe("instagramStories", () => {
   it("is unavailable without an image even if Instagram is installed", async () => {
     mockCanOpenURL.mockResolvedValue(true);
-    expect(await instagramStories({ appId: "1" }).isAvailable({ imageUri: undefined })).toBe(false);
+    expect(
+      await instagramStories({ appId: "1" }).isAvailable({
+        imageUri: undefined,
+      }),
+    ).toBe(false);
   });
 
   it("shares the image as the story background with the app id", async () => {
     mockShareSingle.mockResolvedValue({});
-    const outcome = await instagramStories({ appId: "660498823268206" }).share(PAYLOAD);
+    const outcome = await instagramStories({ appId: "660498823268206" }).share(
+      PAYLOAD,
+    );
     expect(mockShareSingle).toHaveBeenCalledWith(
       expect.objectContaining({
         social: "instagramstories",
@@ -133,8 +144,26 @@ describe("sms", () => {
     mockShareSingle.mockResolvedValue({});
     const outcome = await sms().share(PAYLOAD);
     expect(mockShareSingle).toHaveBeenCalledWith(
-      expect.objectContaining({ social: "sms", message: PAYLOAD.message, url: PAYLOAD.imageUri }),
+      expect.objectContaining({
+        social: "sms",
+        message: PAYLOAD.message,
+        url: PAYLOAD.imageUri,
+      }),
     );
     expect(outcome).toEqual({ completed: true, channel: "messages" });
+  });
+});
+
+describe("tiktok", () => {
+  it("isAvailable is false without an image", async () => {
+    expect(await tiktok().isAvailable({})).toBe(false);
+    expect(mockCanOpenURL).not.toHaveBeenCalled();
+  });
+
+  it("isAvailable gates on TikTok being installed (so createSharer can fall back)", async () => {
+    mockCanOpenURL.mockResolvedValueOnce(true);
+    expect(await tiktok().isAvailable(PAYLOAD)).toBe(true);
+    mockCanOpenURL.mockResolvedValueOnce(false);
+    expect(await tiktok().isAvailable(PAYLOAD)).toBe(false);
   });
 });

@@ -28,27 +28,23 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/index.ts
-var index_exports = {};
-__export(index_exports, {
+var src_exports = {};
+__export(src_exports, {
   SCREENSHOT_DEBOUNCE_MS: () => SCREENSHOT_DEBOUNCE_MS,
   areAllImagesLoaded: () => areAllImagesLoaded,
   captureCardImage: () => captureCardImage,
-  copyLink: () => copyLink,
   createScreenshotGate: () => createScreenshotGate,
   createSharer: () => createSharer,
   instagramStories: () => instagramStories,
   openSystemShareSheet: () => openSystemShareSheet,
-  saveToLibrary: () => saveToLibrary,
   screenshotGate: () => screenshotGate,
   shouldHandleScreenshot: () => shouldHandleScreenshot,
   sms: () => sms,
   systemSheet: () => systemSheet,
-  tiktok: () => tiktok,
-  useScreenshotTrigger: () => useScreenshotTrigger,
   useShareCard: () => useShareCard,
   whatsapp: () => whatsapp
 });
-module.exports = __toCommonJS(index_exports);
+module.exports = __toCommonJS(src_exports);
 
 // src/capture.ts
 var import_legacy = require("expo-file-system/legacy");
@@ -189,23 +185,6 @@ var whatsapp = (options = {}) => {
   };
 };
 
-// src/channels/copyLink.ts
-var copyLink = (options = {}) => {
-  const id = options.id ?? "link";
-  return {
-    id,
-    isAvailable: async (payload) => typeof payload.link === "string" && payload.link.length > 0,
-    share: async (payload) => {
-      if (!payload.link) {
-        return { completed: false, channel: id };
-      }
-      const Clipboard = require("expo-clipboard");
-      await Clipboard.setStringAsync(payload.link);
-      return { completed: true, channel: id };
-    }
-  };
-};
-
 // src/channels/instagramStories.ts
 var import_react_native2 = require("react-native");
 var import_react_native_share2 = __toESM(require("react-native-share"));
@@ -252,61 +231,6 @@ var sms = (options = {}) => {
   };
 };
 
-// src/channels/tiktok.ts
-var tiktok = (options = {}) => {
-  const id = options.id ?? "tiktok";
-  const fallback = (payload) => openSystemShareSheet(payload, id).then((outcome) => ({ ...outcome, fellBack: true }));
-  return {
-    id,
-    isAvailable: async (payload) => Boolean(payload.imageUri),
-    share: async (payload) => {
-      if (!payload.imageUri) {
-        return fallback(payload);
-      }
-      try {
-        const mod = require("tiktok-opensdk-react-native");
-        const TikTokOpenSDK = mod?.default ?? mod;
-        if (TikTokOpenSDK && typeof TikTokOpenSDK.share === "function") {
-          TikTokOpenSDK.share([payload.imageUri], true, false).catch((error) => {
-            options.onError?.(error);
-            void openSystemShareSheet(payload, id);
-          });
-          return { completed: true, channel: id };
-        }
-      } catch (error) {
-        options.onError?.(error);
-      }
-      return fallback(payload);
-    }
-  };
-};
-
-// src/channels/saveToLibrary.ts
-var saveToLibrary = (options = {}) => {
-  const id = options.id ?? "save";
-  return {
-    id,
-    isAvailable: async (payload) => Boolean(payload.imageUri),
-    share: async (payload) => {
-      if (!payload.imageUri) {
-        throw new Error("[rn-social-share] saveToLibrary requires payload.imageUri");
-      }
-      const MediaLibrary = require("expo-media-library");
-      const current = await MediaLibrary.getPermissionsAsync(true);
-      let granted = current.granted;
-      if (!granted) {
-        const requested = await MediaLibrary.requestPermissionsAsync(true);
-        granted = requested.granted;
-      }
-      if (!granted) {
-        return { completed: false, channel: id, permissionDenied: true };
-      }
-      await MediaLibrary.saveToLibraryAsync(payload.imageUri);
-      return { completed: true, channel: id };
-    }
-  };
-};
-
 // src/react/useShareCard.ts
 var import_react = require("react");
 function useShareCard(options) {
@@ -319,8 +243,10 @@ function useShareCard(options) {
   return { ref, capture };
 }
 
-// src/react/useScreenshotTrigger.ts
-var import_react2 = require("react");
+// src/react/imageReadiness.ts
+function areAllImagesLoaded(loaded, required) {
+  return required.every((key) => loaded.has(key));
+}
 
 // src/react/screenshotDebounce.ts
 var SCREENSHOT_DEBOUNCE_MS = 1e3;
@@ -341,53 +267,19 @@ function createScreenshotGate(windowMs = SCREENSHOT_DEBOUNCE_MS) {
   };
 }
 var screenshotGate = createScreenshotGate();
-
-// src/react/useScreenshotTrigger.ts
-function useScreenshotTrigger(enabled, onScreenshot) {
-  const onScreenshotRef = (0, import_react2.useRef)(onScreenshot);
-  onScreenshotRef.current = onScreenshot;
-  (0, import_react2.useEffect)(
-    function subscribeToScreenshots() {
-      if (!enabled) {
-        return;
-      }
-      let subscription;
-      try {
-        const { addScreenshotListener } = require("expo-screen-capture");
-        subscription = addScreenshotListener(() => {
-          if (screenshotGate(Date.now())) {
-            onScreenshotRef.current();
-          }
-        });
-      } catch {
-      }
-      return () => subscription?.remove();
-    },
-    [enabled]
-  );
-}
-
-// src/react/imageReadiness.ts
-function areAllImagesLoaded(loaded, required) {
-  return required.every((key) => loaded.has(key));
-}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   SCREENSHOT_DEBOUNCE_MS,
   areAllImagesLoaded,
   captureCardImage,
-  copyLink,
   createScreenshotGate,
   createSharer,
   instagramStories,
   openSystemShareSheet,
-  saveToLibrary,
   screenshotGate,
   shouldHandleScreenshot,
   sms,
   systemSheet,
-  tiktok,
-  useScreenshotTrigger,
   useShareCard,
   whatsapp
 });

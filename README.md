@@ -33,18 +33,21 @@ Required in the host app:
 react-native-share  react-native-view-shot  expo-file-system
 ```
 
-Optional — only needed if you register the matching channel/hook:
+Optional — each ships as its **own subpath import** so you only pull (and only need to
+install) the native dep for a channel you actually use:
 
-| Dependency                    | Needed by                      |
-| ----------------------------- | ------------------------------ |
-| `expo-clipboard`              | `copyLink`                     |
-| `expo-media-library`          | `saveToLibrary`                |
-| `expo-screen-capture`         | `useScreenshotTrigger`         |
-| `tiktok-opensdk-react-native` | `tiktok`                       |
-| `@expo/config-plugins`        | `withSocialShare` (build-time) |
+| Dependency                    | Subpath import                                |
+| ----------------------------- | --------------------------------------------- |
+| `expo-clipboard`              | `@rocapine/rn-social-share/copyLink`          |
+| `tiktok-opensdk-react-native` | `@rocapine/rn-social-share/tiktok`            |
+| `expo-media-library`          | `@rocapine/rn-social-share/saveToLibrary`     |
+| `expo-screen-capture`         | `@rocapine/rn-social-share/screenshotTrigger` |
+| `@expo/config-plugins`        | `withSocialShare` (build-time)                |
 
-Optional channels lazy-`require` their native module, so importing the barrel never forces a
-dependency you don't use.
+Metro statically bundles every literal `require()`, so if these channels lived in the main
+barrel every consumer would have to install every optional dep or the build fails. Keeping
+them behind subpaths means an app that never imports `.../tiktok` never pulls the TikTok SDK.
+The core barrel only needs the three required peers above (+ `react-native`, `react`).
 
 ## Usage
 
@@ -54,12 +57,13 @@ dependency you don't use.
 import {
   createSharer,
   systemSheet,
-  copyLink,
   sms,
   whatsapp,
   instagramStories,
-  tiktok,
 } from "@rocapine/rn-social-share";
+// Optional-native-dep channels are subpath imports (see the install table):
+import { copyLink } from "@rocapine/rn-social-share/copyLink";
+import { tiktok } from "@rocapine/rn-social-share/tiktok";
 
 export const inviteSharer = createSharer({
   channels: [
@@ -115,7 +119,7 @@ Need a rounded variant for the sheet and a square full-bleed one for Stories? Ca
 import { useScreenshotTrigger } from "@rocapine/rn-social-share";
 
 useScreenshotTrigger(isVisible && !isSheetOpen, () =>
-  openShareSheet("screenshot"),
+  openShareSheet("screenshot")
 );
 ```
 
@@ -127,7 +131,7 @@ A shared, app-wide gate dedupes the iOS double-fire / multiple-listener case (RO
 // app.json / app.config.ts plugins
 [
   "@rocapine/rn-social-share",
-  { "channels": ["instagram", "whatsapp", "tiktok"] },
+  { "channels": ["instagram", "whatsapp", "tiktok"] }
 ]
 ```
 

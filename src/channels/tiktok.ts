@@ -1,5 +1,10 @@
+import { Linking } from "react-native";
 import type { ShareChannel } from "../types";
 import { openSystemShareSheet } from "./_shareSheet";
+
+// TikTok's OpenSDK share entry scheme. Requires `tiktoksharesdk` in the iOS
+// LSApplicationQueriesSchemes (see withSocialShare) for canOpenURL to detect TikTok.
+const TIKTOK_SHARE_URL = "tiktoksharesdk://";
 
 export type TikTokChannelOptions = {
   id?: string;
@@ -25,11 +30,22 @@ export const tiktok = (options: TikTokChannelOptions = {}): ShareChannel => {
   const id = options.id ?? "tiktok";
 
   const fallback = (payload: Parameters<ShareChannel["share"]>[0]) =>
-    openSystemShareSheet(payload, id).then((outcome) => ({ ...outcome, fellBack: true }));
+    openSystemShareSheet(payload, id).then((outcome) => ({
+      ...outcome,
+      fellBack: true,
+    }));
 
   return {
     id,
-    isAvailable: async (payload) => Boolean(payload.imageUri),
+    // Only claim availability when there's an image AND TikTok is actually installed.
+    // Otherwise createSharer routes to the fallback (system sheet) — invoking the OpenSDK
+    // without TikTok present prompts for photo access and then silently no-ops.
+    isAvailable: async (payload) => {
+      if (!payload.imageUri) {
+        return false;
+      }
+      return Linking.canOpenURL(TIKTOK_SHARE_URL).catch(() => false);
+    },
     share: async (payload) => {
       if (!payload.imageUri) {
         return fallback(payload);
@@ -41,10 +57,12 @@ export const tiktok = (options: TikTokChannelOptions = {}): ShareChannel => {
         if (TikTokOpenSDK && typeof TikTokOpenSDK.share === "function") {
           // Fire-and-forget. Fall back only on a real rejection; the promise-never-settles
           // case simply never runs `.catch`, which is the intended behavior.
-          TikTokOpenSDK.share([payload.imageUri], true, false).catch((error: unknown) => {
-            options.onError?.(error);
-            void openSystemShareSheet(payload, id);
-          });
+          TikTokOpenSDK.share([payload.imageUri], true, false).catch(
+            (error: unknown) => {
+              options.onError?.(error);
+              void openSystemShareSheet(payload, id);
+            }
+          );
           return { completed: true, channel: id };
         }
       } catch (error) {
