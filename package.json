@@ -1,6 +1,6 @@
 {
   "name": "@rocapine/rn-social-share",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Headless social-sharing engine for React Native / Expo apps: capture a view as an image and share it across modular channels (Instagram Stories, TikTok, WhatsApp, SMS, system sheet, save to library, copy link).",
   "license": "UNLICENSED",
   "repository": {
