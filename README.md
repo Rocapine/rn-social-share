@@ -125,6 +125,18 @@ useScreenshotTrigger(isVisible && !isSheetOpen, () =>
 
 A shared, app-wide gate dedupes the iOS double-fire / multiple-listener case (ROC-2854).
 
+> **Android / Google Play — read before shipping.** This subpath pulls `expo-screen-capture`,
+> whose manifest declares `READ_MEDIA_IMAGES` (API 33 only). Play then **rejects every
+> upload** — _"All developers requesting access to the photo and video permissions are
+> required to tell Google Play about the core functionality of their app"_ — until the _Photo
+> and video permissions_ declaration is filled, and Google only grants that to apps whose
+> **core** functionality is photo/video access. This hook consumes the screenshot _event_ and
+> never the image, and the API-33 emitter bails out anyway unless you call
+> `ScreenCapture.requestPermissionsAsync()` yourself — so the config plugin below strips the
+> permission by default. Detection still works on API ≤ 32 (`READ_EXTERNAL_STORAGE`) and API
+> 34+ (`DETECT_SCREEN_CAPTURE`). Not using the plugin? Strip it in your own
+> `withAndroidManifest` mod with `tools:node="remove"`, or fill the declaration.
+
 ### 4. Wire native query-permissions (build time)
 
 ```jsonc
@@ -136,8 +148,19 @@ A shared, app-wide gate dedupes the iOS double-fire / multiple-listener case (RO
 ```
 
 Adds the iOS `LSApplicationQueriesSchemes` and Android `<queries>` entries the channels'
-`isAvailable` checks need. **Scope:** query/visibility only — TikTok's full native wiring
-(client key, FileProvider) still lives in the app's `withTikTokShare` plugin for now.
+`isAvailable` checks need, and removes the `READ_MEDIA_IMAGES` that `/screenshotTrigger`
+drags in (see the warning above). **Scope:** query/visibility only — TikTok's full native
+wiring (client key, FileProvider) still lives in the app's `withTikTokShare` plugin for now.
+
+Keep the permission — because you request it at runtime for API-33 screenshot detection, or
+because another feature needs the gallery — by declaring it in `android.permissions`, or:
+
+```jsonc
+[
+  "@rocapine/rn-social-share",
+  { "android": { "stripScreenshotPhotoPermission": false } }
+]
+```
 
 ## Authoring a channel
 

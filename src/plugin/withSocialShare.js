@@ -17,9 +17,42 @@ const ANDROID_PACKAGES = {
   tiktok: ["com.zhiliaoapp.musically", "com.ss.android.ugc.trill"],
 };
 
+// `expo-screen-capture` — the peer behind `/screenshotTrigger` — declares this for API 33,
+// because its own emitter reads MediaStore. Google Play then refuses any upload until the
+// "Photo and video permissions" declaration is filled, and that declaration is only for apps
+// whose CORE functionality is photo/video access. `useScreenshotTrigger` consumes the
+// screenshot *event* and never the image, so the permission buys the app nothing — and
+// without a runtime `requestPermissionsAsync` call the API-33 emitter bails out anyway.
+const SCREENSHOT_PHOTO_PERMISSION = "android.permission.READ_MEDIA_IMAGES";
+
+/**
+ * Strip it unless the app wants it: either it declares the permission itself (a real
+ * gallery feature, or it does request it at runtime for API-33 screenshot detection), or
+ * it opts out with `android: { stripScreenshotPhotoPermission: false }`.
+ */
+function shouldStripPhotoPermission(config, options = {}) {
+  if (
+    options.android &&
+    options.android.stripScreenshotPhotoPermission === false
+  ) {
+    return false;
+  }
+  const declared = (config.android && config.android.permissions) || [];
+  return !declared.includes(SCREENSHOT_PHOTO_PERMISSION);
+}
+
+// `tools:node` is inert (and fails the merge) without the namespace on <manifest>.
+function ensureToolsNamespace(manifest) {
+  manifest.$ = manifest.$ || {};
+  if (!manifest.$["xmlns:tools"]) {
+    manifest.$["xmlns:tools"] = "http://schemas.android.com/tools";
+  }
+}
+
 /**
  * Expo config plugin that declares the app-query permissions the enabled share channels
- * need, so channel availability detection works on both platforms.
+ * need, so channel availability detection works on both platforms, and removes the
+ * photo permission `/screenshotTrigger` drags in (see SCREENSHOT_PHOTO_PERMISSION).
  *
  * Usage in app.config.ts / app.json:
  *   ["@rocapine/rn-social-share", { "channels": ["instagram", "whatsapp", "tiktok"] }]
@@ -31,6 +64,7 @@ const ANDROID_PACKAGES = {
  */
 const withSocialShare = (config, options = {}) => {
   const channels = Array.isArray(options.channels) ? options.channels : [];
+  const stripPhotoPermission = shouldStripPhotoPermission(config, options);
 
   config = withInfoPlist(config, (cfg) => {
     const existing = cfg.modResults.LSApplicationQueriesSchemes || [];
@@ -58,6 +92,25 @@ const withSocialShare = (config, options = {}) => {
         }
       }
     }
+
+    if (stripPhotoPermission) {
+      ensureToolsNamespace(manifest);
+      manifest["uses-permission"] = manifest["uses-permission"] || [];
+      const alreadyRemoved = manifest["uses-permission"].some(
+        (p) =>
+          p.$ &&
+          p.$["android:name"] === SCREENSHOT_PHOTO_PERMISSION &&
+          p.$["tools:node"] === "remove"
+      );
+      if (!alreadyRemoved) {
+        manifest["uses-permission"].push({
+          $: {
+            "android:name": SCREENSHOT_PHOTO_PERMISSION,
+            "tools:node": "remove",
+          },
+        });
+      }
+    }
     return cfg;
   });
 
@@ -66,3 +119,5 @@ const withSocialShare = (config, options = {}) => {
 
 module.exports = withSocialShare;
 module.exports.default = withSocialShare;
+module.exports.shouldStripPhotoPermission = shouldStripPhotoPermission;
+module.exports.SCREENSHOT_PHOTO_PERMISSION = SCREENSHOT_PHOTO_PERMISSION;
