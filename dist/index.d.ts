@@ -15,7 +15,10 @@ type CaptureOptions = {
     width?: number;
     /** Output height in px. Default 1920. */
     height?: number;
-    /** Image format. Default "png". */
+    /**
+     * Image format. Default "png". Prefer "jpg" for an opaque card: iOS renders the
+     * snapshot at 16 bits per channel, so a 1080×1920 PNG weighs ~9 MB there, a JPEG ~0.3 MB.
+     */
     format?: "png" | "jpg";
     /** 0..1. Default 1. */
     quality?: number;

@@ -48,11 +48,18 @@ module.exports = __toCommonJS(src_exports);
 
 // src/capture.ts
 var import_legacy = require("expo-file-system/legacy");
+var import_react_native = require("react-native");
 var import_react_native_view_shot = require("react-native-view-shot");
 async function captureCardImage(ref, options) {
   const { fileName, width = 1080, height = 1920, format = "png", quality = 1, onError } = options;
   try {
-    const tmpUri = await (0, import_react_native_view_shot.captureRef)(ref, { format, quality, width, height });
+    const scale = import_react_native.Platform.OS === "ios" ? import_react_native.PixelRatio.get() : 1;
+    const tmpUri = await (0, import_react_native_view_shot.captureRef)(ref, {
+      format,
+      quality,
+      width: width / scale,
+      height: height / scale
+    });
     const namedUri = `${import_legacy.cacheDirectory}${fileName}`;
     await (0, import_legacy.deleteAsync)(namedUri, { idempotent: true });
     await (0, import_legacy.copyAsync)({ from: tmpUri, to: namedUri });
@@ -174,19 +181,19 @@ var systemSheet = (options = {}) => {
 };
 
 // src/channels/whatsapp.ts
-var import_react_native = require("react-native");
+var import_react_native2 = require("react-native");
 var WHATSAPP_PROBE_URL = "whatsapp://send";
 var whatsapp = (options = {}) => {
   const id = options.id ?? "whatsapp";
   return {
     id,
-    isAvailable: () => import_react_native.Linking.canOpenURL(WHATSAPP_PROBE_URL).catch(() => false),
+    isAvailable: () => import_react_native2.Linking.canOpenURL(WHATSAPP_PROBE_URL).catch(() => false),
     share: (payload) => openSystemShareSheet(payload, id)
   };
 };
 
 // src/channels/instagramStories.ts
-var import_react_native2 = require("react-native");
+var import_react_native3 = require("react-native");
 var import_react_native_share2 = __toESM(require("react-native-share"));
 var INSTAGRAM_STORIES_URL = "instagram-stories://share";
 var instagramStories = (options) => {
@@ -197,7 +204,7 @@ var instagramStories = (options) => {
       if (!payload.imageUri) {
         return false;
       }
-      return import_react_native2.Linking.canOpenURL(INSTAGRAM_STORIES_URL).catch(() => false);
+      return import_react_native3.Linking.canOpenURL(INSTAGRAM_STORIES_URL).catch(() => false);
     },
     share: async (payload) => {
       if (!payload.imageUri) {

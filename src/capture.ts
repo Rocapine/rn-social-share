@@ -1,5 +1,6 @@
 import { cacheDirectory, copyAsync, deleteAsync } from "expo-file-system/legacy";
 import type { RefObject } from "react";
+import { PixelRatio, Platform } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
 export type CaptureOptions = {
@@ -13,7 +14,10 @@ export type CaptureOptions = {
   width?: number;
   /** Output height in px. Default 1920. */
   height?: number;
-  /** Image format. Default "png". */
+  /**
+   * Image format. Default "png". Prefer "jpg" for an opaque card: iOS renders the
+   * snapshot at 16 bits per channel, so a 1080×1920 PNG weighs ~9 MB there, a JPEG ~0.3 MB.
+   */
   format?: "png" | "jpg";
   /** 0..1. Default 1. */
   quality?: number;
@@ -40,7 +44,15 @@ export async function captureCardImage(
   const { fileName, width = 1080, height = 1920, format = "png", quality = 1, onError } = options;
   try {
     // view-shot's temp file is managed and can't be moved reliably — copy it instead.
-    const tmpUri = await captureRef(ref as never, { format, quality, width, height });
+    // view-shot reads width/height as points on iOS (rendered at the device scale) and as
+    // pixels on Android; without this an iPhone 3× produces a 3240×5760 file.
+    const scale = Platform.OS === "ios" ? PixelRatio.get() : 1;
+    const tmpUri = await captureRef(ref as never, {
+      format,
+      quality,
+      width: width / scale,
+      height: height / scale,
+    });
     const namedUri = `${cacheDirectory}${fileName}`;
     await deleteAsync(namedUri, { idempotent: true });
     await copyAsync({ from: tmpUri, to: namedUri });
